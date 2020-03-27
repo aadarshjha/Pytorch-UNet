@@ -24,7 +24,7 @@ dir_checkpoint = 'checkpoints/'
 def train_net(net,
               device,
               epochs=200,
-              batch_size=1,
+              batch_size=4,
               lr=0.0001,
               val_percent=0.1,
               save_cp=True,
