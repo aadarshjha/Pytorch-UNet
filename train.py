@@ -34,8 +34,9 @@ def train_net(net,
     dataset = BasicDataset(dir_img, dir_mask, img_scale)
     dataval = BasicDataset(dir_valimg, dir_valmask, img_scale)
 
-    n_val = int(len(dataset) * val_percent)
-    n_train = len(dataset) - n_val
+    # direct sizes of each training. 
+    n_val = 196
+    n_train = 782
 
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     val_loader = DataLoader(dataval, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
