@@ -18,24 +18,27 @@ from torch.utils.data import DataLoader, random_split
 
 dir_img = 'data/imgs/'
 dir_mask = 'data/masks/'
+dir_valimg = 'data/imgval/'
+dir_valmask = 'data/masksval/'
 dir_checkpoint = 'checkpoints/'
-
 
 def train_net(net,
               device,
               epochs=200,
               batch_size=4,
               lr=0.0001,
-              val_percent=0.1,
+              val_percent=0.2,
               save_cp=True,
               img_scale=0.5):
 
     dataset = BasicDataset(dir_img, dir_mask, img_scale)
+    dataval = BasicDataset(dir_valimg, dir_valmask, img_scale)
+
     n_val = int(len(dataset) * val_percent)
     n_train = len(dataset) - n_val
-    train, val = random_split(dataset, [n_train, n_val])
-    train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
-    val_loader = DataLoader(val, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
+
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
+    val_loader = DataLoader(dataval, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
 
     writer = SummaryWriter(comment=f'LR_{lr}_BS_{batch_size}_SCALE_{img_scale}')
     global_step = 0
