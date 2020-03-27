@@ -23,9 +23,9 @@ dir_checkpoint = 'checkpoints/'
 
 def train_net(net,
               device,
-              epochs=5,
+              epochs=200,
               batch_size=1,
-              lr=0.001,
+              lr=0.0001,
               val_percent=0.1,
               save_cp=True,
               img_scale=0.5):
@@ -126,11 +126,11 @@ def train_net(net,
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=5,
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=200,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')
-    parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.1,
+    parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('-f', '--load', dest='load', type=str, default=False,
                         help='Load model from a .pth file')
