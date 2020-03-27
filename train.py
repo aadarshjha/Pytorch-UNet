@@ -24,7 +24,7 @@ dir_checkpoint = 'checkpoints/'
 
 def train_net(net,
               device,
-              epochs=200,
+              epochs=250,
               batch_size=4,
               lr=0.0001,
               val_percent=0.2,
@@ -113,7 +113,7 @@ def train_net(net,
                         writer.add_images('masks/true', true_masks, global_step)
                         writer.add_images('masks/pred', torch.sigmoid(masks_pred) > 0.5, global_step)
 
-        if save_cp:
+        if save_cp and (epoch + 1) % 10 == 0:
             try:
                 os.mkdir(dir_checkpoint)
                 logging.info('Created checkpoint directory')
@@ -129,7 +129,7 @@ def train_net(net,
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=200,
+    parser.add_argument('-e', '--epochs', metavar='E', type=int, default=250,
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
                         help='Batch size', dest='batchsize')

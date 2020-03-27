@@ -13,11 +13,10 @@ _03/20_:
 _3/27_:
 
 * Fixed issue of random-selected Validation images `train.py`; using roughly 20% of the established training images as the Validation images.
+  * Validation dataset is roughly 196 images.
 * Visualized data via `tensorboard`, image shown here:
 * Selected best model `.pth` file to analyze testing with.
 * Tested data and composed three images together.
-
-
 
 ## Usage
 **Note : Use Python 3**
