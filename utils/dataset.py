@@ -53,10 +53,19 @@ class BasicDataset(Dataset):
         mask = Image.open(mask_file[0])
         img = Image.open(img_file[0])
 
+        #yuankai add
+        mask = np.array(mask)
+        mask[mask>0] = 1
+        mask = Image.fromarray(mask)
+
+
         assert img.size == mask.size, \
             f'Image and mask {idx} should be the same size, but are {img.size} and {mask.size}'
 
         img = self.preprocess(img, self.scale)
         mask = self.preprocess(mask, self.scale)
+
+        #yuankai add
+        mask = mask[0,:]
 
         return {'image': torch.from_numpy(img), 'mask': torch.from_numpy(mask)}
