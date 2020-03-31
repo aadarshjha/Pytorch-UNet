@@ -12,7 +12,59 @@ from tqdm import tqdm
 from eval import eval_net
 from unet import UNet
 
-from torch.utils.tensorboard import SummaryWriter
+import torch.nn.functional as F
+def cross_entropy2d(input, target, weight=None, size_average=True):
+    # input: (n, c, h, w), target: (n, h, w)
+    n, c, h, w = input.size()
+    # log_p: (n, c, h, w)
+    log_p = F.log_softmax(input, dim=1)
+    # log_p: (n*h*w, c)
+    log_p = log_p.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+    ind_p = target.view(n, h, w, 1).repeat(1, 1, 1, c) >= 0
+    log_p = log_p[ind_p.view(-1,c )]
+    log_p = log_p.view(-1, c)
+    # target: (n*h*w,)
+    mask = target >= 0
+    target = target[mask]
+    loss = F.nll_loss(log_p, target, weight=weight, size_average=False)
+    if size_average:
+        loss /= mask.data.sum()
+    return loss
+
+def dice_loss(input, target):
+    """
+    input is a torch variable of size BatchxnclassesxHxW representing log probabilities for each class
+    target is a 1-hot representation of the groundtruth, shoud have same size as the input
+    """
+    assert input.size() == target.size(), "Input sizes must be equal."
+    assert input.dim() == 4, "Input must be a 4D Tensor."
+    # uniques = np.unique(target.numpy())
+    # assert set(list(uniques)) <= set([0, 1]), "target must only contain zeros and ones"
+
+    probs = F.softmax(input, dim=1)
+    num = probs * target  # b,c,h,w--p*g
+    num = torch.sum(num, dim=3)
+    num = torch.sum(num, dim=2)  # b,c
+
+    den1 = probs * probs  # --p^2
+    den1 = torch.sum(den1, dim=3)
+    den1 = torch.sum(den1, dim=2)  # b,c,1,1
+
+    den2 = target * target  # --g^2
+    den2 = torch.sum(den2, dim=3)
+    den2 = torch.sum(den2, dim=2)  # b,c,1,1
+
+    dice = 2 * ((num+0.0000001) / (den1 + den2+0.0000001))
+    dice_eso = dice[:, 1]  # we ignore bg dice val, and take the fg
+
+    dice_total = -1 * torch.sum(dice_eso) / dice_eso.size(0)  # divide by batch_sz
+
+    return dice_total
+
+
+
+#yuankai change to tensorboard
+from tensorboardX import SummaryWriter
 from utils.dataset import BasicDataset
 from torch.utils.data import DataLoader, random_split
 
@@ -39,8 +91,8 @@ def train_net(net,
     n_val = dataval.__len__()
     n_train = dataset.__len__()
 
-    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
-    val_loader = DataLoader(dataval, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
+    train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0, pin_memory=True)
+    val_loader = DataLoader(dataval, batch_size=batch_size, shuffle=False, num_workers=0, pin_memory=True, drop_last=True)
 
     writer = SummaryWriter(comment=f'LR_{lr}_BS_{batch_size}_SCALE_{img_scale}')
     global_step = 0
@@ -56,8 +108,11 @@ def train_net(net,
         Images scaling:  {img_scale}
     ''')
 
-    optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min' if net.n_classes > 1 else 'max', patience=2)
+    #yuankai change the optimizer to Adam
+    # optimizer = optim.RMSprop(net.parameters(), lr=lr, weight_decay=1e-8, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=lr, betas=(0.9, 0.999))
+    #yuankai remove scheduler
+    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min' if net.n_classes > 1 else 'max', patience=2)
     if net.n_classes > 1:
         criterion = nn.CrossEntropyLoss()
     else:
@@ -71,6 +126,11 @@ def train_net(net,
             for batch in train_loader:
                 imgs = batch['image']
                 true_masks = batch['mask']
+                #yuankai add true_masks_2channel for calculating dice loss
+                true_masks_2channel = true_masks.unsqueeze(1)
+                true_masks_2channel = torch.cat((1-true_masks_2channel, true_masks_2channel), 1)
+                true_masks_2channel = true_masks_2channel.to(device=device, dtype=torch.float32)
+
                 assert imgs.shape[1] == net.n_channels, \
                     f'Network has been defined with {net.n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
@@ -84,13 +144,18 @@ def train_net(net,
                     mask_type = torch.long
 
                 true_masks = true_masks.to(device=device, dtype=mask_type)
-
                 masks_pred = net(imgs)
-                loss = criterion(masks_pred, true_masks)
+                loss_cross = criterion(masks_pred, true_masks)
+                #yuankai add the dice loss
+                loss_dice = 1 + dice_loss(masks_pred, true_masks_2channel)
+                #yuankai sum the two loss together as the final loss
+                loss = loss_dice + loss_cross
+
                 epoch_loss += loss.item()
                 writer.add_scalar('Loss/train', loss.item(), global_step)
 
-                pbar.set_postfix(**{'loss (batch)': loss.item()})
+                pbar.set_postfix(**{'loss (batch)': loss.item(), 'loss_cr (batch)': loss_cross.item(), 'loss_dsc (batch)': loss_dice.item()})
+                # pbar.set_postfix(**{'loss2 (batch)': loss2.item()})
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -108,12 +173,12 @@ def train_net(net,
                         writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                         writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
                     val_score = eval_net(net, val_loader, device)
-                    scheduler.step(val_score)
+                    # scheduler.step(val_score)
 
                     writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
                     if net.n_classes > 1:
-                        logging.info('Validation Dice entropy: {}'.format(val_score))
+                        logging.info('Validation Dice Coeff: {}'.format(val_score))
                         writer.add_scalar('Loss/test', val_score, global_step)
                     else:
                         logging.info('Validation Dice Coeff: {}'.format(val_score))
@@ -148,7 +213,7 @@ def get_args():
                         help='Number of epochs', dest='epochs')
     parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=4,
                         help='Batch size', dest='batchsize')
-    parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.0001,
+    parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.001,
                         help='Learning rate', dest='lr')
     parser.add_argument('-f', '--load', dest='load', type=str, default=False,
                         help='Load model from a .pth file')
@@ -172,6 +237,7 @@ if __name__ == '__main__':
     #   - For 1 class and background, use n_classes=1
     #   - For 2 classes, use n_classes=2
     #   - For N > 2 classes, use n_classes=N
+    #yuankai change the number of output channel to 2
     net = UNet(n_channels=3, n_classes=2)
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
