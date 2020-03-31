@@ -8,7 +8,14 @@ from dice_loss import dice_coeff
 def eval_net(net, loader, device):
     """Evaluation without the densecrf with the dice coefficient"""
     net.eval()
-    mask_type = torch.float32 if net.n_classes == 1 else torch.long
+
+    # yuankai change the mask_type to float32
+    # if net.n_classes == 1:
+    #     mask_type = torch.float32
+    # else:
+    #     mask_type = torch.long
+    mask_type = torch.float32
+
     n_val = len(loader)  # the number of batch
     tot = 0
 
@@ -22,7 +29,10 @@ def eval_net(net, loader, device):
                 mask_pred = net(imgs)
 
             if net.n_classes > 1:
-                tot += F.cross_entropy(mask_pred, true_masks).item()
+                pred = mask_pred.max(dim=1)[1]
+                pred = (pred).float()
+                tot += dice_coeff(pred, true_masks).item()
+                # tot += F.cross_entropy(mask_pred, true_masks).item()
             else:
                 pred = torch.sigmoid(mask_pred)
                 pred = (pred > 0.5).float()

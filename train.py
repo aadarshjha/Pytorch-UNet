@@ -29,14 +29,15 @@ def train_net(net,
               lr=0.0001,
               val_percent=0.2,
               save_cp=True,
-              img_scale=0.5):
+              img_scale=1):
 
     dataset = BasicDataset(dir_img, dir_mask, img_scale)
     dataval = BasicDataset(dir_valimg, dir_valmask, img_scale)
 
+    # yuankai change it to automated
     # direct sizes of each training. 
-    n_val = 196
-    n_train = 782
+    n_val = dataval.__len__()
+    n_train = dataset.__len__()
 
     train_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     val_loader = DataLoader(dataval, batch_size=batch_size, shuffle=False, num_workers=8, pin_memory=True, drop_last=True)
@@ -76,7 +77,12 @@ def train_net(net,
                     'the images are loaded correctly.'
 
                 imgs = imgs.to(device=device, dtype=torch.float32)
-                mask_type = torch.float32 if net.n_classes == 1 else torch.long
+
+                if net.n_classes == 1:
+                    mask_type = torch.float32
+                else:
+                    mask_type = torch.long
+
                 true_masks = true_masks.to(device=device, dtype=mask_type)
 
                 masks_pred = net(imgs)
@@ -91,7 +97,10 @@ def train_net(net,
                 nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 optimizer.step()
 
+
+
                 pbar.update(imgs.shape[0])
+
                 global_step += 1
                 if global_step % (len(dataset) // (10 * batch_size)) == 0:
                     for tag, value in net.named_parameters():
@@ -100,10 +109,11 @@ def train_net(net,
                         writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
                     val_score = eval_net(net, val_loader, device)
                     scheduler.step(val_score)
+
                     writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
 
                     if net.n_classes > 1:
-                        logging.info('Validation cross entropy: {}'.format(val_score))
+                        logging.info('Validation Dice entropy: {}'.format(val_score))
                         writer.add_scalar('Loss/test', val_score, global_step)
                     else:
                         logging.info('Validation Dice Coeff: {}'.format(val_score))
@@ -113,6 +123,10 @@ def train_net(net,
                     if net.n_classes == 1:
                         writer.add_images('masks/true', true_masks, global_step)
                         writer.add_images('masks/pred', torch.sigmoid(masks_pred) > 0.5, global_step)
+                    else:
+                        writer.add_images('masks/true', true_masks.unsqueeze(1), global_step)
+                        writer.add_images('masks/pred', masks_pred.max(dim=1)[1].unsqueeze(1), global_step)
+                        # writer.add_images('masks/pred', torch.sigmoid(masks_pred) > 0.5, global_step)
 
         if save_cp and (epoch + 1) % 10 == 0:
             try:
@@ -132,13 +146,13 @@ def get_args():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-e', '--epochs', metavar='E', type=int, default=250,
                         help='Number of epochs', dest='epochs')
-    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=1,
+    parser.add_argument('-b', '--batch-size', metavar='B', type=int, nargs='?', default=4,
                         help='Batch size', dest='batchsize')
     parser.add_argument('-l', '--learning-rate', metavar='LR', type=float, nargs='?', default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('-f', '--load', dest='load', type=str, default=False,
                         help='Load model from a .pth file')
-    parser.add_argument('-s', '--scale', dest='scale', type=float, default=0.5,
+    parser.add_argument('-s', '--scale', dest='scale', type=float, default=1,
                         help='Downscaling factor of the images')
     parser.add_argument('-v', '--validation', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
@@ -156,9 +170,9 @@ if __name__ == '__main__':
     # n_channels=3 for RGB images
     # n_classes is the number of probabilities you want to get per pixel
     #   - For 1 class and background, use n_classes=1
-    #   - For 2 classes, use n_classes=1
+    #   - For 2 classes, use n_classes=2
     #   - For N > 2 classes, use n_classes=N
-    net = UNet(n_channels=3, n_classes=1)
+    net = UNet(n_channels=3, n_classes=2)
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
                  f'\t{net.n_classes} output channels (classes)\n'
