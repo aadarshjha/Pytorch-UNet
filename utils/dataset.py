@@ -28,6 +28,8 @@ class BasicDataset(Dataset):
         newW, newH = int(scale * w), int(scale * h)
         assert newW > 0 and newH > 0, 'Scale is too small'
         pil_img = pil_img.resize((newW, newH))
+        if len(pil_img.getbands()) == 4: # RGBA image
+            pil_img = pil_img.convert('RGB')
 
         img_nd = np.array(pil_img)
 

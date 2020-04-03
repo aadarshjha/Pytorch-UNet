@@ -27,26 +27,30 @@ def predict_img(net,
 
     with torch.no_grad():
         output = net(img)
+        output_seg = output.max(dim=1)[1].unsqueeze(1)
+        output_seg = output_seg.data.cpu().numpy()
+        return output_seg[0,0,:,:]
 
-        if net.n_classes > 1:
-            probs = F.softmax(output, dim=1)
-        else:
-            probs = torch.sigmoid(output)
 
-        probs = probs.squeeze(0)
-
-        tf = transforms.Compose(
-            [
-                transforms.ToPILImage(),
-                transforms.Resize(full_img.size[1]),
-                transforms.ToTensor()
-            ]
-        )
-
-        probs = tf(probs.cpu())
-        full_mask = probs.squeeze().cpu().numpy()
-
-    return full_mask > out_threshold
+    #     if net.n_classes > 1:
+    #         probs = F.softmax(output, dim=1)
+    #     else:
+    #         probs = torch.sigmoid(output)
+    #
+    #     probs = probs.squeeze(0)
+    #
+    #     tf = transforms.Compose(
+    #         [
+    #             transforms.ToPILImage(),
+    #             transforms.Resize(full_img.size[1]),
+    #             transforms.ToTensor()
+    #         ]
+    #     )
+    #
+    #     probs = tf(probs.cpu())
+    #     full_mask = probs.squeeze().cpu().numpy()
+    #
+    # return full_mask > out_threshold
 
 
 def get_args():
@@ -71,7 +75,7 @@ def get_args():
                         default=0.5)
     parser.add_argument('--scale', '-s', type=float,
                         help="Scale factor for the input images",
-                        default=0.5)
+                        default=1)
 
     return parser.parse_args()
 
@@ -102,7 +106,7 @@ if __name__ == "__main__":
     in_files = args.input
     out_files = get_output_filenames(args)
 
-    net = UNet(n_channels=3, n_classes=1)
+    net = UNet(n_channels=3, n_classes=2)
 
     logging.info("Loading model {}".format(args.model))
 
