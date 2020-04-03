@@ -9,7 +9,6 @@ from PIL import Image
 
 
 class BasicDataset(Dataset):
-    # modifications @here for dataset.
     def __init__(self, imgs_dir, masks_dir, scale=1):
         self.imgs_dir = imgs_dir
         self.masks_dir = masks_dir
@@ -23,37 +22,16 @@ class BasicDataset(Dataset):
     def __len__(self):
         return len(self.ids)
 
+    @classmethod
     def preprocess(cls, pil_img, scale):
         w, h = pil_img.size
         newW, newH = int(scale * w), int(scale * h)
         assert newW > 0 and newH > 0, 'Scale is too small'
-
         pil_img = pil_img.resize((newW, newH))
         if len(pil_img.getbands()) == 4: # RGBA image
             pil_img = pil_img.convert('RGB')
 
-        '''
-        # Aadarsh Preprocess steps here.
-
-        # Using Pillow Library to do preprocessing.
-        # horizontal flip
-        pil_img = pil_img.transpose(Image.FLIP_LEFT_RIGHT)
-
-        #vertical flip.
-        pil_img = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
-
-        #np image array.
-
-
-        gaus_noise = np.random.normal(mean, std, image.shape)
-        image = image.astype("int16")
-        noise_img = image + gaus_noise
-        image = ceil_floor_image(image)
-        return noise_img
-        '''
-
         img_nd = np.array(pil_img)
-
 
         if len(img_nd.shape) == 2:
             img_nd = np.expand_dims(img_nd, axis=2)
@@ -64,8 +42,6 @@ class BasicDataset(Dataset):
             img_trans = img_trans / 255
 
         return img_trans
-
-
 
     def __getitem__(self, i):
         idx = self.ids[i]
