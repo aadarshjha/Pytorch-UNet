@@ -9,6 +9,7 @@ from PIL import Image
 
 
 class BasicDataset(Dataset):
+    # modifications @here for dataset. 
     def __init__(self, imgs_dir, masks_dir, scale=1):
         self.imgs_dir = imgs_dir
         self.masks_dir = masks_dir
@@ -43,8 +44,8 @@ class BasicDataset(Dataset):
 
     def __getitem__(self, i):
         idx = self.ids[i]
-        mask_file = glob(self.masks_dir + idx + '*')
-        img_file = glob(self.imgs_dir + idx + '*')
+        mask_file = glob(self.masks_dir + idx + '.gif')
+        img_file = glob(self.imgs_dir + idx + '.png')
 
         assert len(mask_file) == 1, \
             f'Either no mask or multiple masks found for the ID {idx}: {mask_file}'
