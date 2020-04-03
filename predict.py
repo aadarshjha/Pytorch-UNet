@@ -95,6 +95,7 @@ def get_output_filenames(args):
 
 
 def mask_to_image(mask):
+    # aadarsh : error occurs here, "mask type not supported", mask shape is (2, 256, 256). 
     return Image.fromarray((mask * 255).astype(np.uint8))
 
 
