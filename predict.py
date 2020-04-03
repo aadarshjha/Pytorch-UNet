@@ -20,37 +20,34 @@ def predict_img(net,
                 out_threshold=0.5):
     net.eval()
 
-    img = torch.from_numpy(BasicDataset.preprocess(full_img, scale_factor))
+    # 3 is a dummy arg as the argument is optional but python keeps throwing an error.
+    img = torch.from_numpy(BasicDataset.preprocess(3, full_img, scale_factor))
 
     img = img.unsqueeze(0)
     img = img.to(device=device, dtype=torch.float32)
 
     with torch.no_grad():
         output = net(img)
-        output_seg = output.max(dim=1)[1].unsqueeze(1)
-        output_seg = output_seg.data.cpu().numpy()
-        return output_seg[0,0,:,:]
 
+        if net.n_classes > 1:
+            probs = F.softmax(output, dim=1)
+        else:
+            probs = torch.sigmoid(output)
 
-    #     if net.n_classes > 1:
-    #         probs = F.softmax(output, dim=1)
-    #     else:
-    #         probs = torch.sigmoid(output)
-    #
-    #     probs = probs.squeeze(0)
-    #
-    #     tf = transforms.Compose(
-    #         [
-    #             transforms.ToPILImage(),
-    #             transforms.Resize(full_img.size[1]),
-    #             transforms.ToTensor()
-    #         ]
-    #     )
-    #
-    #     probs = tf(probs.cpu())
-    #     full_mask = probs.squeeze().cpu().numpy()
-    #
-    # return full_mask > out_threshold
+        probs = probs.squeeze(0)
+
+        tf = transforms.Compose(
+            [
+                transforms.ToPILImage(),
+                transforms.Resize(full_img.size[1]),
+                transforms.ToTensor()
+            ]
+        )
+
+        probs = tf(probs.cpu())
+        full_mask = probs.squeeze().cpu().numpy()
+
+    return full_mask > out_threshold
 
 
 def get_args():
@@ -75,7 +72,7 @@ def get_args():
                         default=0.5)
     parser.add_argument('--scale', '-s', type=float,
                         help="Scale factor for the input images",
-                        default=1)
+                        default=0.5)
 
     return parser.parse_args()
 
@@ -98,6 +95,7 @@ def get_output_filenames(args):
 
 
 def mask_to_image(mask):
+    # aadarsh : error occurs here, "mask type not supported", mask shape is (2, 256, 256). 
     return Image.fromarray((mask * 255).astype(np.uint8))
 
 
@@ -106,6 +104,7 @@ if __name__ == "__main__":
     in_files = args.input
     out_files = get_output_filenames(args)
 
+    # aadarsh  changed n_classes = 2 since the change is in train.py 
     net = UNet(n_channels=3, n_classes=2)
 
     logging.info("Loading model {}".format(args.model))

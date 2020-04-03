@@ -87,7 +87,7 @@ def train_net(net,
     dataval = BasicDataset(dir_valimg, dir_valmask, img_scale)
 
     # yuankai change it to automated
-    # direct sizes of each training. 
+    # direct sizes of each training.
     n_val = dataval.__len__()
     n_train = dataset.__len__()
 
@@ -128,7 +128,7 @@ def train_net(net,
                 true_masks = batch['mask']
                 #yuankai add true_masks_2channel for calculating dice loss
                 true_masks_2channel = true_masks.unsqueeze(1)
-                true_masks_2channel = torch.cat((1-true_masks_2channel, true_masks_2channel), 1)
+                true_masks_2channel = torch.cat((~true_masks_2channel, true_masks_2channel), 1)
                 true_masks_2channel = true_masks_2channel.to(device=device, dtype=torch.float32)
 
                 assert imgs.shape[1] == net.n_channels, \
