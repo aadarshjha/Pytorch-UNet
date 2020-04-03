@@ -20,7 +20,8 @@ def predict_img(net,
                 out_threshold=0.5):
     net.eval()
 
-    img = torch.from_numpy(BasicDataset.preprocess(full_img, scale_factor))
+    # 3 is a dummy arg as the argument is optional but python keeps throwing an error.
+    img = torch.from_numpy(BasicDataset.preprocess(3, full_img, scale_factor))
 
     img = img.unsqueeze(0)
     img = img.to(device=device, dtype=torch.float32)
@@ -102,7 +103,8 @@ if __name__ == "__main__":
     in_files = args.input
     out_files = get_output_filenames(args)
 
-    net = UNet(n_channels=3, n_classes=1)
+    # aadarsh  changed n_classes = 2 since the change is in train.py 
+    net = UNet(n_channels=3, n_classes=2)
 
     logging.info("Loading model {}".format(args.model))
 

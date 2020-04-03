@@ -23,14 +23,35 @@ class BasicDataset(Dataset):
     def __len__(self):
         return len(self.ids)
 
-    @classmethod
     def preprocess(cls, pil_img, scale):
         w, h = pil_img.size
         newW, newH = int(scale * w), int(scale * h)
         assert newW > 0 and newH > 0, 'Scale is too small'
+
         pil_img = pil_img.resize((newW, newH))
 
+        '''
+        # Aadarsh Preprocess steps here.
+
+        # Using Pillow Library to do preprocessing.
+        # horizontal flip
+        pil_img = pil_img.transpose(Image.FLIP_LEFT_RIGHT)
+
+        #vertical flip.
+        pil_img = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
+
+        #np image array.
+
+
+        gaus_noise = np.random.normal(mean, std, image.shape)
+        image = image.astype("int16")
+        noise_img = image + gaus_noise
+        image = ceil_floor_image(image)
+        return noise_img
+        '''
+
         img_nd = np.array(pil_img)
+
 
         if len(img_nd.shape) == 2:
             img_nd = np.expand_dims(img_nd, axis=2)
@@ -42,10 +63,12 @@ class BasicDataset(Dataset):
 
         return img_trans
 
+
+
     def __getitem__(self, i):
         idx = self.ids[i]
-        mask_file = glob(self.masks_dir + idx + '.gif')
-        img_file = glob(self.imgs_dir + idx + '.png')
+        mask_file = glob(self.masks_dir + idx + '*')
+        img_file = glob(self.imgs_dir + idx + '*')
 
         assert len(mask_file) == 1, \
             f'Either no mask or multiple masks found for the ID {idx}: {mask_file}'
