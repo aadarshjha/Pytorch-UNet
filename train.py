@@ -83,8 +83,18 @@ def train_net(net,
               save_cp=True,
               img_scale=1):
 
-    dataset = BasicDataset(dir_img, dir_mask, img_scale)
-    dataval = BasicDataset(dir_valimg, dir_valmask, img_scale)
+    dataset = BasicDataset(dir_img, dir_mask, False, img_scale)
+
+    # pre-processed data: (flip, noise, augmentation, etc):
+    datasetAug = BasicDataset(dir_img, dir_mask, True, img_scale)
+
+    dataval = BasicDataset(dir_valimg, dir_valmask, False, img_scale)
+    # pre-processed data: (flip, noise, augmentation, etc):
+    datavalAug = BasicDataset(dir_valimg, dir_valmask, True, img_scale)
+
+    # increasing sample size with augmented data.
+    dataset = dataset + datasetAug
+    dataval = dataval + datavalAug
 
     # yuankai change it to automated
     # direct sizes of each training.
@@ -126,6 +136,7 @@ def train_net(net,
             for batch in train_loader:
                 imgs = batch['image']
                 true_masks = batch['mask']
+
                 #yuankai add true_masks_2channel for calculating dice loss
                 true_masks_2channel = true_masks.unsqueeze(1)
                 true_masks_2channel = torch.cat((~true_masks_2channel, true_masks_2channel), 1)
